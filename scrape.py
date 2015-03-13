@@ -1,10 +1,19 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
 
+
+"""
+Scraper for Karlsruhe's drinking water quality indicators.
+
+This script scrapes the values of several drinking water quality
+indicators from the homepage of the Stadtwerke Karlsruhe.
+"""
+
+
 import cStringIO
 import contextlib
 import datetime
-import locale as locale_module
+import locale
 import urllib2
 
 import PIL.Image
@@ -25,7 +34,17 @@ VALUES = {
     'w6': ('nitrate', 'mg/l'),
 }
 
-def get_image(key, height, width):
+def get_image(key, width, height):
+    """
+    Download one of the images/diagrams.
+
+    ``key`` is the diagram key (``w1`` to ``w6`` for the indicators,
+    ``w9`` for the date image). ``width`` and ``height`` specify the
+    image dimensions.
+
+    The return value is a ``PIL.Image.Image`` instance from which the
+    black border has been cropped.
+    """
     buf = cStringIO.StringIO(urllib2.urlopen(IMAGE_URL % (height, width, key)).read())
     img = PIL.Image.open(buf)
     return img.crop((1, 1, img.size[0] - 2, img.size[1] - 2))  # Cut 1 pixel border
@@ -64,6 +83,16 @@ def count_black_pixels(img, left=None, top=None, right=None, bottom=None):
 
 
 def get_block_signature(img, left, top, right, bottom):
+    """
+    Get an image block's signature.
+
+    The signature is a list of the running indices of the black pixels
+    in the block.
+
+    ``left``, ``top``, ``right`` and ``bottom`` specify the borders of
+    the block. ``left`` and ``top`` are inclusive, ``right`` and
+    ``bottom`` are exclusive.
+    """
     columns = img.size[0]
     data = img.getdata()
     sig = []
@@ -77,6 +106,13 @@ def get_block_signature(img, left, top, right, bottom):
 
 
 def split(seq):
+    """
+    Split a sequence on zeros.
+
+    The given sequence is split into chunks separated by one or more
+    zeros. The start (inclusive) and end (exclusive) indices of the
+    chunks are returned as a list of 2-tuples.
+    """
     indices = []
     start = None
     for i, s in enumerate(seq):
@@ -91,11 +127,27 @@ def split(seq):
 
 
 def strip(seq):
+    """
+    Strip zeros from the front and end of a sequence.
+
+    Returns a tuple of the first and last non-zero items' indices.
+    """
     indices = split(seq)
     return indices[0][0], indices[-1][1]
 
 
 def get_char_signatures(img, space_width=6):
+    """
+    Get character signatures for an image.
+
+    The image is assumed to contain one row of characters, each of
+    which is connected. The return value is a list of character
+    signatures for these characters.
+
+    If the gap between two characters is equal to or larger than
+    ``space_width`` then a space signature (an empty tuple) is
+    inserted between the characters' signatures.
+    """
     signatures = []
     img = img.convert('L')
     vcount = count_black_pixels(img)[1]
@@ -103,7 +155,7 @@ def get_char_signatures(img, space_width=6):
     last_right = float('Inf')
     for left, right in split(vcount):
         if left - last_right >= space_width:
-            signatures.append(tuple())  # Space
+            signatures.append(())  # Space
         hcount = count_black_pixels(img, left=left, right=right)[0]
         top, bottom = strip(hcount)
         signatures.append(get_block_signature(img, left, top, right, bottom))
@@ -210,31 +262,51 @@ CLASSES = {
 
 
 def get_text(img):
+    """
+    Extract text from image.
+    """
     signatures = get_char_signatures(img)
     chars = [CLASSES[sig] for sig in signatures]
     return ''.join(chars)
 
 
 def get_value(key):
-    img = get_image(key, 50, 70)
+    """
+    Get diagram value.
+
+    ``key`` is the diagram key (``w1`` to ``w6``).
+
+    The diagram is downloaded, its text is extracted, converted to
+    float and returned.
+    """
+    img = get_image(key, 70, 50)
     return float(get_text(img))
 
 
+@contextlib.contextmanager
+def local_locale(name):
+    """
+    Context-manager to temporarily switch to a different locale.
+    """
+    old = locale.getlocale(locale.LC_ALL)
+    try:
+        yield locale.setlocale(locale.LC_ALL, name)
+    finally:
+        locale.setlocale(locale.LC_ALL, old)
+
+
 def get_date():
-    img = get_image('w9', 20, 300)
+    """
+    Get time and date of the last update.
+
+    The date image is downloaded, its text is extracted, converted to
+    a ``datetime.datetime`` instance and returned.
+    """
+    img = get_image('w9', 300, 20)
     label = get_text(img)
-    with locale('C'):
+    with local_locale('C'):
         date = datetime.datetime.strptime(label.split(':', 1)[1].strip(), '%d %b %y %H:%M')
     return date
-
-
-@contextlib.contextmanager
-def locale(name):
-    old = locale_module.getlocale(locale_module.LC_ALL)
-    try:
-        yield locale_module.setlocale(locale_module.LC_ALL, name)
-    finally:
-        locale_module.setlocale(locale_module.LC_ALL, old)
 
 
 if __name__ == '__main__':
@@ -243,7 +315,7 @@ if __name__ == '__main__':
     import os.path
 
     date = get_date().strftime('%Y-%m-%d-%H-%M-00')
-    basename = 'drinking-water-karlsruhe-' + date + '.json'
+    basename = 'karlsruhe-drinking-water-' + date + '.json'
     filename = os.path.join(os.path.dirname(__file__), basename)
 
     if not os.path.isfile(filename):

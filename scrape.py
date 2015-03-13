@@ -17,12 +17,12 @@ IMAGE_URL = "http://www.stadtwerke-karlsruhe.de/cgi-bin/gd?h=%d&w=%d&r=255&g=255
 
 
 VALUES = {
-    'w1': ('Temperatur', '°C'),
-    'w2': ('PH-Wert', ''),
-    'w3': ('Leitfähigkeit', 'µS/cm'),
-    'w4': ('Trübung', 'NTU'),
-    'w5': ('Sauerstoff', 'mg/l'),
-    'w6': ('Nitrat', 'mg/l'),
+    'w1': ('temperature', '°C'),
+    'w2': ('ph', ''),
+    'w3': ('conductivity', 'µS/cm'),
+    'w4': ('turbidity', 'NTU'),
+    'w5': ('oxygen', 'mg/l'),
+    'w6': ('nitrate', 'mg/l'),
 }
 
 def get_image(key, height, width):
@@ -215,6 +215,19 @@ def get_text(img):
     return ''.join(chars)
 
 
+def get_value(key):
+    img = get_image(key, 50, 70)
+    return float(get_text(img))
+
+
+def get_date():
+    img = get_image('w9', 20, 300)
+    label = get_text(img)
+    with locale('C'):
+        date = datetime.datetime.strptime(label.split(':', 1)[1].strip(), '%d %b %y %H:%M')
+    return date
+
+
 @contextlib.contextmanager
 def locale(name):
     old = locale_module.getlocale(locale_module.LC_ALL)
@@ -225,18 +238,21 @@ def locale(name):
 
 
 if __name__ == '__main__':
+    import codecs
+    import json
+    import os.path
 
-    # Diagrams
-    for key in sorted(VALUES):
-        img = get_image(key, 50, 70)
-        name, unit = VALUES[key]
-        print "%s: %f %s" % (name, float(get_text(img)), unit)
+    date = get_date().strftime('%Y-%m-%d-%H-%M-00')
+    basename = 'drinking-water-karlsruhe-' + date + '.json'
+    filename = os.path.join(os.path.dirname(__file__), basename)
 
-    # Date
-    img = get_image('w9', 20, 300)
-    print
-    label = get_text(img)
-    with locale('C'):
-        date = datetime.datetime.strptime(label.split(':', 1)[1].strip(), '%d %b %y %H:%M')
-    print 'Datum:', date
+    if not os.path.isfile(filename):
+        values = {}
+        for key, (name, unit) in VALUES.iteritems():
+            values[name] = {
+                'unit': unit,
+                'value': get_value(key),
+            }
+        with codecs.open(filename, 'w', encoding='utf8') as f:
+            json.dump({'date': date, 'values': values}, f)
 

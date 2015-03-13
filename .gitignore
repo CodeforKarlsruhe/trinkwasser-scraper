@@ -1,4 +1,5 @@
 /venv
+/drinking-water-karlsruhe-*.json
 
 *.swp
 *.pyc

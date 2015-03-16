@@ -309,22 +309,69 @@ def get_date():
     return date
 
 
+
 if __name__ == '__main__':
     import codecs
     import json
+    import logging
+    import logging.handlers
     import os.path
+    import sys
 
-    date = get_date().strftime('%Y-%m-%d-%H-%M-00')
-    basename = 'karlsruhe-drinking-water-' + date + '.json'
-    filename = os.path.join(os.path.dirname(__file__), basename)
+    HERE = os.path.abspath(os.path.dirname(__file__))
 
-    if not os.path.isfile(filename):
-        values = {}
-        for key, (name, unit) in VALUES.iteritems():
-            values[name] = {
-                'unit': unit,
-                'value': get_value(key),
-            }
-        with codecs.open(filename, 'w', encoding='utf8') as f:
-            json.dump({'date': date, 'values': values}, f)
+    class _MaxLevelFilter(logging.Filter):
+        """
+        Logging filter that discards messages with too high a level.
+        """
+        def __init__(self, level):
+            """
+            Constructor.
 
+            ``level`` is the maximum level (exclusive).
+            """
+            self.level = level
+
+        def filter(self, record):
+            return record.levelno < self.level
+
+
+    log = logging.getLogger('codeforka-trinkwasser')
+    log.setLevel(logging.INFO)
+    formatter = logging.Formatter('[%(asctime)s] <%(levelname)s> %(message)s')
+    stdout_handler  = logging.StreamHandler(sys.stdout)
+    stdout_handler.addFilter(_MaxLevelFilter(logging.WARNING))
+    stdout_handler.setFormatter(formatter)
+    log.addHandler(stdout_handler)
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(formatter)
+    log.addHandler(stderr_handler)
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+            os.path.join(HERE, 'scrape.log'), when='W0', backupCount=4,
+            encoding='utf8')
+    file_handler.setFormatter(formatter)
+    log.addHandler(file_handler)
+
+
+    log.info('Started')
+    try:
+        date = get_date().strftime('%Y-%m-%d-%H-%M-00')
+        log.info('Date of last measurement: %s', date)
+        basename = 'karlsruhe-drinking-water-' + date + '.json'
+        filename = os.path.join(HERE, basename)
+        if not os.path.isfile(filename):
+            log.info('Scraping data')
+            values = {}
+            for key, (name, unit) in VALUES.iteritems():
+                values[name] = {
+                    'unit': unit,
+                    'value': get_value(key),
+                }
+            with codecs.open(filename, 'w', encoding='utf8') as f:
+                json.dump({'date': date, 'values': values}, f)
+        else:
+            log.info('Data already scraped, nothing to do')
+    except Exception as e:
+        log.exception(e)
+    log.info('Finished')

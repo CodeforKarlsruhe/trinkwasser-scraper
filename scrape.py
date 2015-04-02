@@ -329,13 +329,16 @@ def get_date():
 
 if __name__ == '__main__':
     import codecs
+    import errno
     import json
     import logging
     import logging.handlers
+    import os
     import os.path
     import sys
 
     HERE = os.path.abspath(os.path.dirname(__file__))
+    LINK_FILENAME = os.path.join(HERE, 'latest.json')
 
     log = logging.getLogger('codeforka-trinkwasser')
     log.setLevel(logging.INFO)
@@ -362,6 +365,12 @@ if __name__ == '__main__':
                 }
             with codecs.open(filename, 'w', encoding='utf8') as f:
                 json.dump({'date': date, 'values': values}, f)
+            try:
+                os.remove(LINK_FILENAME)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+            os.symlink(basename, LINK_FILENAME)
         else:
             log.info('Data already scraped, nothing to do')
     except Exception as e:

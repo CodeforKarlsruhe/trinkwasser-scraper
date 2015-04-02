@@ -1,5 +1,6 @@
 /venv
 /karlsruhe-drinking-water-*.json
+/latest.json
 /scrape.log*
 
 *.swp

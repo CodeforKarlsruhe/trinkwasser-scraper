@@ -327,6 +327,35 @@ def get_date():
     return date
 
 
+def scrape():
+    """
+    Download and parse data.
+
+    Returns a dictionary with the latest values.
+    """
+    values = {}
+    for key, (name, unit) in VALUES.iteritems():
+        values[name] = {
+            'unit': unit,
+            'value': get_value(key),
+        }
+    return values
+
+
+def symlink(target, filename):
+    """
+    Create a symlink.
+
+    An existing file of the same name is overwritten.
+    """
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+    os.symlink(target, filename)
+
+
 if __name__ == '__main__':
     import codecs
     import errno
@@ -338,8 +367,6 @@ if __name__ == '__main__':
     import sys
 
     HERE = os.path.abspath(os.path.dirname(__file__))
-    LINK_FILENAME = os.path.join(HERE, 'latest.json')
-
     log = logging.getLogger('codeforka-trinkwasser')
     log.setLevel(logging.INFO)
     formatter = logging.Formatter('[%(asctime)s] <%(levelname)s> %(message)s')
@@ -350,29 +377,32 @@ if __name__ == '__main__':
     log.addHandler(file_handler)
 
     log.info('Started')
+
+    if len(sys.argv) != 2:
+        log.error('Illegal number of arguments: Expected 1, got %d' %
+                  (len(sys.argv) - 1))
+        sys.exit(1)
+    OUTPUT_DIR = os.path.abspath(sys.argv[1])
+    if not os.path.isdir(OUTPUT_DIR):
+        log.error('Output directory "%s" does not exist' % OUTPUT_DIR)
+        sys.exit(1)
+    log.info('Output directory is "%s"' % OUTPUT_DIR)
+
     try:
         date = get_date().strftime('%Y-%m-%d-%H-%M-00')
         log.info('Date of last measurement: %s', date)
         basename = 'karlsruhe-drinking-water-' + date + '.json'
-        filename = os.path.join(HERE, basename)
+        filename = os.path.join(OUTPUT_DIR, basename)
         if not os.path.isfile(filename):
             log.info('Scraping data')
-            values = {}
-            for key, (name, unit) in VALUES.iteritems():
-                values[name] = {
-                    'unit': unit,
-                    'value': get_value(key),
-                }
+            values = scrape()
             with codecs.open(filename, 'w', encoding='utf8') as f:
-                json.dump({'date': date, 'values': values}, f)
-            try:
-                os.remove(LINK_FILENAME)
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-            os.symlink(basename, LINK_FILENAME)
+                json.dump({'date': date, 'values': values}, f,
+                          separators=(',',':'))
+            symlink(basename, os.path.join(OUTPUT_DIR, 'latest.json'))
         else:
             log.info('Data already scraped, nothing to do')
     except Exception as e:
         log.exception(e)
+
     log.info('Finished')

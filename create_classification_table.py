@@ -1,12 +1,34 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
 
-# Generate character classification table for image OCR.
+# Copyright (c) 2015 Code for Karlsruhe (http://codefor.de/karlsruhe)
 #
-# The homepage from which we scrape our data uses the GD graphics
-# library to generate its diagrams. This script uses the same library
-# to produce a sample image containing all characters from which a
-# classification map is constructed. The map is printed to STDOUT.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+"""
+Generate character classification table for image OCR.
+
+The homepage from which we scrape our data uses the GD graphics
+library to generate its diagrams. This script uses the same library
+to produce a sample image containing all characters from which a
+classification map is constructed. The map is printed to STDOUT.
+"""
 
 import gd
 
@@ -78,3 +100,4 @@ if __name__ == '__main__':
     for item in table.iteritems():
         print '    %r: %r,' % item
     print '}'
+
